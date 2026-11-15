@@ -1,0 +1,17 @@
+{
+  "trained_at": "2026-11-15T06:36:06.934345",
+  "event_count": 452,
+  "hourly_samples": 188,
+  "random_forest": {
+    "model": "RandomForest",
+    "mae": 0.1331,
+    "rmse": 0.2233,
+    "r2": 0.6423
+  },
+  "baseline": {
+    "model": "HourlyMean_Baseline",
+    "mae": 0.1783,
+    "rmse": 0.2482,
+    "r2": 0.5579
+  }
+}

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Parking Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chart.js 4.x -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-inner">
+    <div class="header-logo">
+      🅿 Smart Parking System | Lot A
+    </div>
+    <div class="header-controls">
+      <!-- Device Status -->
+      <div class="device-badge offline" id="device-badge">
+        <span class="pulse-dot"></span>
+        <span id="device-label">Connecting…</span>
+      </div>
+      <!-- Simulator Indicator -->
+      <div class="sim-badge simulator" id="sim-badge" title="Data source indicator">
+        🔧 SIMULATOR
+      </div>
+      <!-- Theme Toggle -->
+      <button class="btn" id="theme-toggle" title="Toggle light/dark theme" aria-label="Toggle theme">
+        🌙 Dark
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main Content ── -->
+<main>
+  <div class="container">
+
+    <!-- ── Row 1: KPI Cards ── -->
+    <p class="section-title">📊 Key Metrics</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Occupancy</div>
+        <div class="kpi-value" id="kpi-occupancy"><span class="skeleton skeleton-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpi-occupancy-sub">— of 4 slots</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Free Slots</div>
+        <div class="kpi-value" id="kpi-free"><span class="skeleton skeleton-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpi-free-sub">available now</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Duration</div>
+        <div class="kpi-value" id="kpi-avg-duration"><span class="skeleton skeleton-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpi-duration-sub">minutes per session</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Peak Hour</div>
+        <div class="kpi-value" id="kpi-peak"><span class="skeleton skeleton-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpi-peak-sub">busiest time of day</div>
+      </div>
+    </div>
+
+    <!-- ── Row 2: Slot Cards ── -->
+    <p class="section-title">🚗 Live Slot Status</p>
+    <div class="slot-grid" id="slot-grid">
+      <!-- Skeleton slots -->
+      <div class="slot-card unknown">
+        <div class="slot-number skeleton" style="width:60px;height:50px;">&nbsp;</div>
+        <div class="slot-label skeleton skeleton-text">&nbsp;</div>
+      </div>
+      <div class="slot-card unknown">
+        <div class="slot-number skeleton" style="width:60px;height:50px;">&nbsp;</div>
+        <div class="slot-label skeleton skeleton-text">&nbsp;</div>
+      </div>
+      <div class="slot-card unknown">
+        <div class="slot-number skeleton" style="width:60px;height:50px;">&nbsp;</div>
+        <div class="slot-label skeleton skeleton-text">&nbsp;</div>
+      </div>
+      <div class="slot-card unknown">
+        <div class="slot-number skeleton" style="width:60px;height:50px;">&nbsp;</div>
+        <div class="slot-label skeleton skeleton-text">&nbsp;</div>
+      </div>
+    </div>
+
+    <!-- ── Row 3: Hourly Chart + Heatmap ── -->
+    <p class="section-title">📈 Occupancy Patterns</p>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">Average Occupancy by Hour</div>
+        <div class="chart-wrap">
+          <canvas id="hourly-chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Day × Hour Heatmap</div>
+        <div class="heatmap-canvas-wrap">
+          <canvas id="heatmap-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Row 4: Forecast + Sessions ── -->
+    <p class="section-title">🔮 Forecast & Recent Sessions</p>
+    <div class="forecast-grid">
+      <div class="chart-card">
+        <div class="chart-card-title" style="display:flex;align-items:center;gap:.75rem;">
+          24-Hour Occupancy Forecast
+          <span id="best-arrival" class="best-arrival" style="display:none;">
+            ⏰ Best arrival: <strong id="best-arrival-time">—</strong>
+          </span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="forecast-chart"></canvas>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="chart-card-title">Recent Sessions</div>
+        <div class="table-wrap">
+          <table class="sessions-table">
+            <thead>
+              <tr>
+                <th>Slot</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="sessions-tbody">
+              <tr><td colspan="4" class="empty-state">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Row 5: Insights + Anomalies ── -->
+    <p class="section-title">💡 Insights & Anomalies</p>
+    <div class="insights-grid">
+      <div class="insight-card">
+        <div class="chart-card-title">📌 Insights</div>
+        <div id="insights-container">
+          <div class="empty-state"><div class="empty-icon">🔍</div>Loading insights…</div>
+        </div>
+      </div>
+      <div class="anomaly-card">
+        <div class="chart-card-title">⚠️ Anomalies</div>
+        <div id="anomalies-container">
+          <div class="empty-state"><div class="empty-icon">✅</div>No anomalies detected</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</main>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-actions">
+        <button class="btn btn-accent" onclick="exportCSV()">
+          ⬇️ Export CSV
+        </button>
+        <button class="btn" onclick="retrainModel()">
+          🔄 Retrain Model
+        </button>
+      </div>
+      <div class="last-updated">
+        Last updated: <span id="last-updated-time">—</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ── Toast Container ── -->
+<div id="toast-container" aria-live="polite"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
