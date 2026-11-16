@@ -181,6 +181,7 @@ def get_slots(db: Session = Depends(get_db)):
     rows = (
         db.query(SlotState)
         .filter(SlotState.lot_id == settings.lot_id)
+        .filter(SlotState.slot_id <= settings.num_slots)
         .order_by(SlotState.slot_id.asc())
         .all()
     )

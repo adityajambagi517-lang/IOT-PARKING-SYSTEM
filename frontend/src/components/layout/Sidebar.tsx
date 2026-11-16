@@ -26,7 +26,7 @@ export const Sidebar: React.FC = () => {
 
   const navItems: NavItem[] = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'live', label: 'Live Parking', icon: Car, badge: `${occupiedCount}/4` },
+    { id: 'live', label: 'Live Parking', icon: Car, badge: `${occupiedCount}/${slots.length}` },
     { id: 'analytics', label: 'Analytics & Forecast', icon: LineChart },
     { id: 'history', label: 'Parking History', icon: History },
     { id: 'health', label: 'Device Health', icon: Cpu, badge: health?.esp32_connected ? 'OK' : 'OFF' },
@@ -96,7 +96,7 @@ export const Sidebar: React.FC = () => {
       <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 m-3 rounded-xl">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-slate-400 font-medium">Zone & Lot</span>
-          <span className="text-xs font-mono font-semibold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Lot A (4 Bays)</span>
+          <span className="text-xs font-mono font-semibold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Lot A ({slots.length} Bays)</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-slate-400 font-medium">Data Pipeline</span>

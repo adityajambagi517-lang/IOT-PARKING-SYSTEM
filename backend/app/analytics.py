@@ -82,7 +82,12 @@ def _sessions_df(db: Session) -> pd.DataFrame:
 
 def get_current_occupancy(db: Session) -> dict:
     """Return real-time occupancy from the SlotState table."""
-    rows = db.query(SlotState).filter(SlotState.lot_id == settings.lot_id).all()
+    rows = (
+        db.query(SlotState)
+        .filter(SlotState.lot_id == settings.lot_id)
+        .filter(SlotState.slot_id <= settings.num_slots)
+        .all()
+    )
     total = settings.num_slots
     occupied_count = sum(1 for r in rows if r.occupied)
     free_count = total - occupied_count

@@ -64,10 +64,7 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const res = await fetch('/api/slots');
       if (res.ok) {
         const data: Slot[] = await res.json();
-        setSlots(prev => {
-          const map = new Map(data.map(s => [s.slot_id, s]));
-          return prev.map(p => map.get(p.slot_id) || p);
-        });
+        setSlots(data);
       }
     } catch (e) {
       console.warn('Error fetching slots:', e);
@@ -183,21 +180,14 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'slots' && Array.isArray(data.slots)) {
-              setSlots(prev => {
-                const map = new Map<number, Slot>(data.slots.map((s: Slot) => [s.slot_id, s]));
-                return prev.map(p => {
-                  const updated = map.get(p.slot_id);
-                  if (updated) {
-                    if (updated.occupied && !occupancyStartTimes.current[p.slot_id]) {
-                      const startTime = updated.last_changed ? new Date(updated.last_changed).getTime() : Date.now();
-                      occupancyStartTimes.current[p.slot_id] = isNaN(startTime) ? Date.now() : startTime;
-                    } else if (!updated.occupied) {
-                      delete occupancyStartTimes.current[p.slot_id];
-                    }
-                    return updated;
-                  }
-                  return p;
-                });
+              setSlots(data.slots);
+              data.slots.forEach((s: Slot) => {
+                if (s.occupied && !occupancyStartTimes.current[s.slot_id]) {
+                  const startTime = s.last_changed ? new Date(s.last_changed).getTime() : Date.now();
+                  occupancyStartTimes.current[s.slot_id] = isNaN(startTime) ? Date.now() : startTime;
+                } else if (!s.occupied) {
+                  delete occupancyStartTimes.current[s.slot_id];
+                }
               });
               if (data.device_status) {
                 setHealth(h => h ? { ...h, status: data.device_status, esp32_connected: data.device_status === 'online' } : null);
