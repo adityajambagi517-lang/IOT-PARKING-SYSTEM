@@ -12,7 +12,7 @@ import json
 import logging
 import math
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import joblib
@@ -134,7 +134,7 @@ def train_model(db: Session) -> dict:
     baseline_metrics = _metrics(y_test, y_pred_baseline, "HourlyMean_Baseline")
 
     metrics = {
-        "trained_at": datetime.utcnow().isoformat(),
+        "trained_at": datetime.now(timezone.utc).isoformat(),
         "event_count": len(rows),
         "hourly_samples": len(df),
         "random_forest": rf_metrics,
@@ -180,23 +180,24 @@ def predict_occupancy(hours_ahead: int = 24) -> list[dict]:
     """
     Generate predictions for the next `hours_ahead` hours.
 
-    Returns a list of dicts: {ts, predicted_occupancy_pct, lower, upper}.
+    Returns a list of dicts: {ts, predicted_occupancy_pct, lower, upper, is_fallback}.
     Falls back to hourly-mean baseline if no model is available.
     """
     bundle = load_model()
-    now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0, tzinfo=None)
     future_hours = [now + timedelta(hours=i + 1) for i in range(hours_ahead)]
 
     results = []
 
     if bundle is None:
-        # Fallback: flat 50% with no confidence
+        # Fallback: flat 50% baseline marked clearly as fallback
         for ts in future_hours:
             results.append({
                 "ts": ts.isoformat(),
                 "predicted_occupancy_pct": 50.0,
                 "lower": 30.0,
                 "upper": 70.0,
+                "is_fallback": True,
             })
         return results
 
@@ -235,6 +236,7 @@ def predict_occupancy(hours_ahead: int = 24) -> list[dict]:
             "predicted_occupancy_pct": round(pct, 1),
             "lower": lower,
             "upper": upper,
+            "is_fallback": False,
         })
 
     return results

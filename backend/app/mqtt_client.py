@@ -158,17 +158,22 @@ def _handle_session(db: Session, payload: SlotPayload, previous_occupied: bool) 
             db.commit()
 
 
-def _upsert_device_status(db: Session, lot_id: str, status: str) -> None:
+def _upsert_device_status(db: Session, lot_id: str, status: str, ts: Optional[datetime] = None) -> None:
+    now = ts or datetime.now(timezone.utc).replace(tzinfo=None)
     record: Optional[DeviceStatus] = (
         db.query(DeviceStatus).filter(DeviceStatus.lot_id == lot_id).first()
     )
     if record is None:
-        record = DeviceStatus(lot_id=lot_id, status=status, ts=datetime.utcnow())
+        record = DeviceStatus(lot_id=lot_id, status=status, ts=now)
         db.add(record)
     else:
         record.status = status
-        record.ts = datetime.utcnow()
-    db.commit()
+        record.ts = now
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to commit device status: %s", exc)
 
 
 def _parse_ts(ts_str: str) -> Optional[datetime]:
@@ -207,30 +212,63 @@ def _on_disconnect(client: mqtt.Client, userdata, rc: int) -> None:
 def _on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage) -> None:
     """Handle incoming MQTT messages in the paho thread."""
     topic: str = msg.topic
+    parts = topic.split("/")
+
     try:
-        raw = json.loads(msg.payload.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        payload_text = msg.payload.decode("utf-8", errors="replace").strip()
+    except Exception as exc:
+        logger.warning("Invalid payload decode on topic %s: %s", topic, exc)
+        return
+
+    # Handle device status: parking/{lot_id}/device/status
+    # Tolerates JSON: {"status":"online","ts":"..."} AND plain text: "online" / "offline"
+    if len(parts) == 4 and parts[0] == "parking" and parts[2] == "device" and parts[3] == "status":
+        lot_id = parts[1]
+        status_val = "offline"
+        ts_val = None
+
+        try:
+            parsed = json.loads(payload_text)
+            if isinstance(parsed, dict):
+                status_val = parsed.get("status", "online")
+                ts_str = parsed.get("ts")
+                if ts_str:
+                    ts_val = _parse_ts(ts_str)
+            elif isinstance(parsed, str):
+                status_val = parsed.strip()
+        except Exception:
+            # Plain text string like "online" or "offline"
+            status_val = payload_text.strip().strip('"').strip("'").lower()
+
+        status_val = "online" if "online" in str(status_val).lower() else "offline"
+        ts_dt = ts_val or datetime.now(timezone.utc).replace(tzinfo=None)
+
+        db = SessionLocal()
+        try:
+            _upsert_device_status(db, lot_id, status_val, ts_dt)
+            _broadcast({
+                "type": "device_status",
+                "lot_id": lot_id,
+                "status": status_val,
+                "ts": ts_dt.isoformat(),
+            })
+        except Exception as exc:
+            logger.exception("Error processing device status on %s: %s", topic, exc)
+        finally:
+            db.close()
+        return
+
+    # For other topics (slot state, etc.), parse JSON
+    try:
+        raw = json.loads(payload_text)
+    except Exception as exc:
         logger.warning("Invalid JSON on topic %s: %s", topic, exc)
         return
 
-    # Topic pattern: parking/{lot_id}/slot/{slot_id}/state
-    parts = topic.split("/")
     db = SessionLocal()
     try:
         if len(parts) == 5 and parts[0] == "parking" and parts[2] == "slot" and parts[4] == "state":
             _handle_slot_state(db, raw, topic)
-
-        elif len(parts) == 4 and parts[0] == "parking" and parts[2] == "device" and parts[3] == "status":
-            lot_id = parts[1]
-            if isinstance(raw, dict):
-                status = raw.get("status", "online")
-            elif isinstance(raw, str):
-                status = raw.strip()
-            else:
-                status = "online"
-            _upsert_device_status(db, lot_id, status)
-            _broadcast({"type": "device_status", "lot_id": lot_id, "status": status})
-
         else:
             logger.debug("Unhandled topic: %s", topic)
     except Exception as exc:
@@ -255,15 +293,33 @@ def _handle_slot_state(db: Session, raw: dict, topic: str) -> None:
     )
     previous_occupied = prev.occupied if prev else False
 
-    _upsert_slot_state(db, payload)
-    _insert_event(db, payload)
-    _handle_session(db, payload, previous_occupied)
+    # Check for stale sequence numbers safely (guard against out-of-order packets while handling reboots)
+    if prev and prev.seq is not None and payload.seq is not None:
+        if payload.seq < prev.seq:
+            prev_ts = prev.ts
+            new_ts = _parse_ts(payload.ts)
+            # If payload is genuinely older than current state by >5s and not a device reboot (reboot starts seq low)
+            if prev_ts and new_ts and (prev_ts - new_ts).total_seconds() > 5.0 and not (payload.seq < 5 and prev.seq > 50):
+                logger.info("Ignoring stale sequence %d (current %d) for slot %d", payload.seq, prev.seq, payload.slot)
+                return
+
+    try:
+        _upsert_slot_state(db, payload)
+        _insert_event(db, payload)
+        _handle_session(db, payload, previous_occupied)
+    except Exception as exc:
+        db.rollback()
+        logger.error("Database error while handling slot state: %s", exc)
+        raise
 
     _broadcast({
         "type": "slot_update",
         "lot": payload.lot,
+        "lot_id": payload.lot,
         "slot": payload.slot,
+        "slot_id": payload.slot,
         "occupied": payload.occupied,
+        "status": "occupied" if payload.occupied else "free",
         "distance_cm": payload.distance_cm,
         "rssi": payload.rssi,
         "ts": payload.ts,
@@ -300,8 +356,8 @@ def start_mqtt(loop: asyncio.AbstractEventLoop) -> mqtt.Client:
     if settings.mqtt_username:
         client.username_pw_set(settings.mqtt_username, settings.mqtt_password)
 
-    # Last Will and Testament — backend publishes offline status if it crashes
-    lwt_topic = f"parking/{settings.lot_id}/device/status"
+    # Last Will and Testament — backend publishes offline status for backend service if it crashes
+    lwt_topic = f"parking/{settings.lot_id}/backend/status"
     client.will_set(lwt_topic, json.dumps({"status": "offline"}), qos=1, retain=True)
 
     client.on_connect = _on_connect

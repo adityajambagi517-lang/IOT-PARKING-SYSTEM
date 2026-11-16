@@ -65,6 +65,8 @@ data/*.csv
 .env
 .env.*
 !.env.example
+firmware/esp32_parking/config.h
+
 
 # IDE
 .idea/

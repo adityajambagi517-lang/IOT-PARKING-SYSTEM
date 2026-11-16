@@ -29,7 +29,7 @@ DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 
 def _events_df(db: Session, days: int = 30) -> pd.DataFrame:
     """Load recent events into a DataFrame."""
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     rows = (
         db.query(Event)
         .filter(Event.received_at >= cutoff)
@@ -276,7 +276,7 @@ def get_anomalies(db: Session) -> list:
     - Slots flapping: >5 state changes in the last 1 hour.
     """
     anomalies = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Long-occupancy: open sessions older than 4 h OR closed sessions with duration > 4h (14400s)
     threshold = now - timedelta(hours=4)

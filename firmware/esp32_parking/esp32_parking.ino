@@ -256,7 +256,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
     return;
   }
 
-  const char *cmd = doc["cmd"] | "";
+  const char *cmd = doc["cmd"] | doc["command"] | "";
 
   if (strcmp(cmd, "buzzer") == 0) {
     // Activate buzzer for specified duration
@@ -327,8 +327,9 @@ void connectMQTT() {
 
   // --- Last Will & Testament ---
   // If the device loses connection ungracefully, the broker will
-  // automatically publish "offline" to the status topic (retained).
+  // automatically publish {"status":"offline"} to the status topic (retained).
   String lwtTopic = topicDeviceStatus();
+  const char *lwtPayload = "{\"status\":\"offline\"}";
   mqtt.setServer(MQTT_BROKER, MQTT_PORT);
   mqtt.setCallback(mqttCallback);
   mqtt.setBufferSize(512); // ensure room for JSON payloads
@@ -336,16 +337,17 @@ void connectMQTT() {
   bool connected;
   if (strlen(MQTT_USERNAME) > 0) {
     connected = mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD,
-                             lwtTopic.c_str(), 1, true, "offline");
+                             lwtTopic.c_str(), 1, true, lwtPayload);
   } else {
     connected = mqtt.connect(MQTT_CLIENT_ID, nullptr, nullptr,
-                             lwtTopic.c_str(), 1, true, "offline");
+                             lwtTopic.c_str(), 1, true, lwtPayload);
   }
 
   if (connected) {
     Serial.println("[MQTT] Connected.");
-    // Announce device online (retained, so dashboard shows status even after subscribe)
-    mqtt.publish(lwtTopic.c_str(), "online", /*retained=*/true);
+    // Announce device online with ISO timestamp (retained)
+    String onlinePayload = String("{\"status\":\"online\",\"ts\":\"") + getTimestampISO() + "\"}";
+    mqtt.publish(lwtTopic.c_str(), onlinePayload.c_str(), /*retained=*/true);
 
     // Subscribe to command topic
     String cmdTopic = topicCmd();
@@ -459,12 +461,14 @@ void loop() {
     }
   }
 
-  // --- Heartbeat: publish all slots every HEARTBEAT_INTERVAL_MS ---
+  // --- Heartbeat: publish device status and all slots every HEARTBEAT_INTERVAL_MS ---
   // This ensures the backend receives fresh data even if no state changes.
   unsigned long now_ms = millis();
   if (now_ms - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
     lastHeartbeatMs = now_ms;
-    Serial.println("[Heartbeat] Publishing all slots...");
+    Serial.println("[Heartbeat] Publishing device status and all slots...");
+    String hbPayload = String("{\"status\":\"online\",\"ts\":\"") + getTimestampISO() + "\"}";
+    mqtt.publish(topicDeviceStatus().c_str(), hbPayload.c_str(), /*retained=*/true);
     for (int i = 0; i < NUM_SLOTS; i++) {
       publishState(slots[i]);
     }

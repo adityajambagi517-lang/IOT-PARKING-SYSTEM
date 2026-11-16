@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 import os
 
@@ -13,10 +13,13 @@ class Settings(BaseSettings):
     lot_id: str = "A"
     num_slots: int = 4
     model_path: str = "backend/models/occupancy_model.pkl"
+    device_timeout_seconds: int = 60
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 
 settings = Settings()

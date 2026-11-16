@@ -107,6 +107,24 @@ def test_cmd_endpoint(client: TestClient):
     assert data["command"] == "open"
 
 
+def test_cmd_buzzer_endpoint(client: TestClient):
+    """POST /api/cmd supports buzzer command without requiring slot."""
+    res = client.post("/api/cmd", json={"cmd": "buzzer", "duration_ms": 500})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["cmd"] == "buzzer"
+    assert data["status"] in ("sent", "queued_offline")
+
+
+def test_cmd_led_endpoint(client: TestClient):
+    """POST /api/cmd supports LED diagnostic command."""
+    res = client.post("/api/cmd", json={"cmd": "led", "slot": 2, "color": "red", "state": True})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["cmd"] == "led"
+    assert data["slot"] == 2
+
+
 def test_invalid_cmd_missing_slot(client: TestClient):
     """POST /api/cmd without slot returns 422 Unprocessable Entity."""
     res = client.post("/api/cmd", json={"command": "open"})
@@ -117,4 +135,5 @@ def test_invalid_cmd_missing_command(client: TestClient):
     """POST /api/cmd without command returns 422 Unprocessable Entity."""
     res = client.post("/api/cmd", json={"slot": 1})
     assert res.status_code == 422
+
 

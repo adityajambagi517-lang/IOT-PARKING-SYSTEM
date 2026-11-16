@@ -113,8 +113,13 @@ class PredictResponse(BaseModel):
 
 
 class CmdRequest(BaseModel):
-    slot: int
-    command: str
+    slot: Optional[int] = None
+    slot_id: Optional[int] = None
+    command: Optional[str] = None
+    cmd: Optional[str] = None
+    duration_ms: Optional[int] = 300
+    color: Optional[str] = None
+    state: Optional[bool] = None
     params: dict[str, Any] = {}
 
 
@@ -122,6 +127,10 @@ class HealthResponse(BaseModel):
     status: str
     db_ok: bool
     mqtt_connected: bool
+    esp32_connected: bool = False
     slot_count: int
     uptime_seconds: float
+    last_seen: Optional[str] = None
+    last_heartbeat: Optional[str] = None
+    device_timeout_seconds: Optional[int] = 60
     version: str = "1.0.0"
