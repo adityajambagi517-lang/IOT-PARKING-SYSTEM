@@ -1,0 +1,43 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        background: '#090d16',
+        card: '#0f172a',
+        'card-hover': '#16223d',
+        border: '#1e293b',
+        primary: {
+          50: '#eef2ff',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
+        },
+        emerald: {
+          500: '#10b981',
+          600: '#059669',
+        },
+        rose: {
+          500: '#f43f5e',
+          600: '#e11d48',
+        },
+        amber: {
+          500: '#f59e0b',
+        },
+        cyan: {
+          500: '#06b6d4',
+        }
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+      }
+    },
+  },
+  plugins: [],
+}

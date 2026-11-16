@@ -428,34 +428,25 @@ def send_actuator_cmd(payload: dict):
 
     # Build consistent payload matching firmware parser
     if cmd == "buzzer":
-        dur = payload.get("duration_ms", 300)
+        dur = payload.get("duration_ms", 500)
         cmd_dict = {
             "cmd": "buzzer",
-            "command": "buzzer",
             "duration_ms": int(dur),
-            "lot": settings.lot_id,
-            "ts": ts_now,
         }
     elif cmd == "led":
         color = payload.get("color", "red")
         st = bool(payload.get("state", True))
         cmd_dict = {
             "cmd": "led",
-            "command": "led",
             "slot": int(slot_id),
             "color": color,
             "state": st,
-            "lot": settings.lot_id,
-            "ts": ts_now,
         }
     else:
         cmd_dict = {
             "cmd": cmd,
-            "command": cmd,
             "slot": int(slot_id) if slot_id is not None else None,
             "params": params,
-            "lot": settings.lot_id,
-            "ts": ts_now,
         }
 
     success = publish_cmd(topic, json.dumps(cmd_dict))
@@ -556,9 +547,23 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
 # Static Files & SPA Dashboard Serving
 # ---------------------------------------------------------------------------
 
+FRONTEND_DIST = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
 FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
 
-if os.path.isdir(FRONTEND_DIR):
+if os.path.isdir(FRONTEND_DIST) and os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
+    assets_dir = os.path.join(FRONTEND_DIST, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_spa(full_path: str):
+        # Allow direct file access if file exists in dist
+        target_file = os.path.join(FRONTEND_DIST, full_path)
+        if full_path and os.path.isfile(target_file):
+            return FileResponse(target_file)
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+
+elif os.path.isdir(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
     @app.get("/")
@@ -567,3 +572,4 @@ if os.path.isdir(FRONTEND_DIR):
         if os.path.exists(index_file):
             return FileResponse(index_file)
         return {"message": "IoT Smart Parking API is running. Frontend index.html not found."}
+

@@ -68,6 +68,16 @@ data/*.csv
 firmware/esp32_parking/config.h
 
 
+# Node
+node_modules/
+frontend/node_modules/
+.npm
+npm-debug.log*
+
+# Allow frontend production build
+!frontend/dist/
+!frontend/dist/**
+
 # IDE
 .idea/
 .vscode/

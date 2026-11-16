@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Parking IoT Management System | Lot A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chart.js 4.4.x -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ── Sidebar Navigation ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="4" />
+            <path d="M9 17V7h4a3 3 0 0 1 0 6H9" />
+          </svg>
+          <div class="brand-text">
+            <span class="brand-title">ParkMaster IoT</span>
+            <span class="brand-subtitle">Lot A &bull; ESP32 System</span>
+          </div>
+        </div>
+        <button class="sidebar-close-btn" id="sidebar-close-btn" aria-label="Close sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#overview" class="nav-item active" data-view="overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="9" rx="1.5"/>
+            <rect x="14" y="3" width="7" height="5" rx="1.5"/>
+            <rect x="14" y="12" width="7" height="9" rx="1.5"/>
+            <rect x="3" y="16" width="7" height="5" rx="1.5"/>
+          </svg>
+          <span>Overview</span>
+        </a>
+
+        <a href="#live-parking" class="nav-item" data-view="live-parking">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="6" width="20" height="12" rx="2.5"/>
+            <circle cx="7" cy="12" r="2"/>
+            <path d="M17 9h.01M17 12h.01M17 15h.01"/>
+          </svg>
+          <span>Live Parking</span>
+          <span class="nav-badge live-pulse">LIVE</span>
+        </a>
+
+        <a href="#analytics" class="nav-item" data-view="analytics">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3v18h18"/>
+            <path d="M18 9l-5 5-4-4-6 6"/>
+          </svg>
+          <span>Analytics</span>
+        </a>
+
+        <a href="#history" class="nav-item" data-view="history">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7v5l3 3"/>
+          </svg>
+          <span>Parking History</span>
+        </a>
+
+        <a href="#device-health" class="nav-item" data-view="device-health">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+          <span>Device Health</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="quick-status-block">
+          <div class="status-row">
+            <span class="status-indicator" id="side-esp32-dot"></span>
+            <span class="status-text">ESP32: <strong id="side-esp32-status">Offline</strong></span>
+          </div>
+          <div class="status-row">
+            <span class="status-indicator" id="side-mqtt-dot"></span>
+            <span class="status-text">Broker: <strong id="side-mqtt-status">Checking</strong></span>
+          </div>
+          <div class="status-row">
+            <span class="status-indicator" id="side-ws-dot"></span>
+            <span class="status-text">Stream: <strong id="side-ws-status">Connecting</strong></span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Main Workspace ── -->
+    <div class="main-wrapper">
+      <!-- ── Top Header ── -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open navigation menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div class="page-title-group">
+            <h1 class="page-title" id="page-title">System Overview</h1>
+            <span class="lot-badge">Zone Lot A &bull; 4 Bays</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- ESP32 Hardware Badge -->
+          <div class="status-pill offline" id="pill-esp32" title="ESP32 Microcontroller Status">
+            <span class="pulse-ring"></span>
+            <span class="pill-text" id="pill-esp32-text">ESP32 Offline</span>
+          </div>
+
+          <!-- MQTT Broker Badge -->
+          <div class="status-pill offline" id="pill-broker" title="Mosquitto MQTT Broker Connectivity">
+            <span class="pill-dot"></span>
+            <span class="pill-text" id="pill-broker-text">MQTT Disconnected</span>
+          </div>
+
+          <!-- Live Refresh Button -->
+          <button class="btn btn-ghost" id="manual-refresh-btn" title="Refresh Data Now">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            <span class="btn-text">Sync</span>
+          </button>
+
+          <!-- Theme Toggle Button -->
+          <button class="btn btn-ghost" id="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle theme">
+            <svg id="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg id="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon" style="display:none;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ── Dynamic View Container ── -->
+      <main class="content-container">
+
+        <!-- =========================================================
+             VIEW 1: OVERVIEW
+             ========================================================= -->
+        <section class="view-panel active" id="view-overview">
+          <!-- KPI Row -->
+          <div class="kpi-grid">
+            <div class="kpi-card highlight">
+              <div class="kpi-header">
+                <span class="kpi-title">Current Occupancy</span>
+                <span class="kpi-badge" id="kpi-occ-badge">0%</span>
+              </div>
+              <div class="kpi-body">
+                <div class="kpi-main-val" id="kpi-occupancy-val">—%</div>
+                <div class="kpi-progress-bar">
+                  <div class="kpi-progress-fill" id="kpi-progress-fill" style="width: 0%"></div>
+                </div>
+              </div>
+              <div class="kpi-footer">
+                <span id="kpi-slots-breakdown"><strong id="kpi-occupied-count">0</strong> occupied &bull; <strong id="kpi-free-count">4</strong> available</span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Available Slots</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="kpi-icon text-success"><path d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div class="kpi-body">
+                <div class="kpi-main-val text-success" id="kpi-free-val">4</div>
+              </div>
+              <div class="kpi-footer">
+                <span>Free for immediate entry</span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Average Duration</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="kpi-icon text-info"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <div class="kpi-body">
+                <div class="kpi-main-val" id="kpi-duration-val">—</div>
+              </div>
+              <div class="kpi-footer">
+                <span>Minutes per completed session</span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Peak Occupancy Hour</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="kpi-icon text-warning"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              </div>
+              <div class="kpi-body">
+                <div class="kpi-main-val" id="kpi-peak-val">—</div>
+              </div>
+              <div class="kpi-footer">
+                <span id="kpi-peak-sub">Calculated from historical patterns</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Status Quick Matrix & Hardware Status Banner -->
+          <div class="overview-split">
+            <div class="panel-card flex-2">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <h2 class="panel-title">Real-Time Slot Overview</h2>
+                  <span class="panel-subtitle">Immediate sensor states synchronized over WebSocket</span>
+                </div>
+                <a href="#live-parking" class="link-action" data-nav="live-parking">Full View &rarr;</a>
+              </div>
+              <div class="overview-slot-row" id="overview-slot-row">
+                <!-- Populated dynamically via JS -->
+              </div>
+            </div>
+
+            <div class="panel-card flex-1">
+              <div class="panel-header">
+                <h2 class="panel-title">System Connectivity</h2>
+              </div>
+              <div class="system-status-list">
+                <div class="sys-item">
+                  <div class="sys-info">
+                    <span class="sys-name">ESP32 Hardware</span>
+                    <span class="sys-sub" id="sys-esp32-lastseen">Awaiting heartbeat...</span>
+                  </div>
+                  <span class="status-pill offline" id="sys-esp32-pill">Offline</span>
+                </div>
+                <div class="sys-item">
+                  <div class="sys-info">
+                    <span class="sys-name">MQTT Mosquitto</span>
+                    <span class="sys-sub" id="sys-mqtt-sub">Port 1883 &bull; parking/#</span>
+                  </div>
+                  <span class="status-pill offline" id="sys-mqtt-pill">Disconnected</span>
+                </div>
+                <div class="sys-item">
+                  <div class="sys-info">
+                    <span class="sys-name">FastAPI Backend</span>
+                    <span class="sys-sub">Uvicorn &bull; SQLite Engine</span>
+                  </div>
+                  <span class="status-pill online">Healthy</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Forecast Snapshot -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 class="panel-title">Occupancy Forecast & Recommended Arrival</h2>
+                <span class="panel-subtitle">Machine Learning predictions for the next 24 hours</span>
+              </div>
+              <div class="model-badge-tag" id="overview-model-tag">RandomForest Regressor</div>
+            </div>
+            <div class="forecast-banner" id="overview-arrival-banner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="banner-icon"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <div class="banner-text">
+                <strong id="overview-best-arrival-text">Analyzing historical patterns...</strong>
+                <span>Recommended low-traffic time window to park with minimum wait time.</span>
+              </div>
+            </div>
+            <div class="chart-container-sm">
+              <canvas id="overview-forecast-chart"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 2: LIVE PARKING (4 Individual Cards + Actuators)
+             ========================================================= -->
+        <section class="view-panel" id="view-live-parking">
+          <div class="section-top-actions">
+            <div>
+              <h2 class="view-heading">Live Parking Bays</h2>
+              <p class="view-subheading">High-precision HC-SR04 ultrasonic distance telemetry with real-time hardware status.</p>
+            </div>
+            <div class="action-btn-group">
+              <button class="btn btn-warning" id="btn-test-buzzer-500" title="Sound Buzzer for 500 ms">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <span>Test Buzzer (0.5s)</span>
+              </button>
+              <button class="btn btn-secondary" id="btn-test-buzzer-1000" title="Sound Buzzer for 1 second">
+                <span>Long Buzzer (1.0s)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 Individual Parking Slot Cards -->
+          <div class="live-cards-grid" id="live-cards-grid">
+            <!-- Populated dynamically via JS: Slot 1, 2, 3, 4 -->
+            <div class="parking-bay-card skeleton-card">
+              <div class="bay-header"><div class="skeleton-line" style="width:40%"></div></div>
+              <div class="bay-distance-box"><div class="skeleton-line" style="height:3rem"></div></div>
+            </div>
+            <div class="parking-bay-card skeleton-card">
+              <div class="bay-header"><div class="skeleton-line" style="width:40%"></div></div>
+              <div class="bay-distance-box"><div class="skeleton-line" style="height:3rem"></div></div>
+            </div>
+            <div class="parking-bay-card skeleton-card">
+              <div class="bay-header"><div class="skeleton-line" style="width:40%"></div></div>
+              <div class="bay-distance-box"><div class="skeleton-line" style="height:3rem"></div></div>
+            </div>
+            <div class="parking-bay-card skeleton-card">
+              <div class="bay-header"><div class="skeleton-line" style="width:40%"></div></div>
+              <div class="bay-distance-box"><div class="skeleton-line" style="height:3rem"></div></div>
+            </div>
+          </div>
+
+          <!-- Actuator Diagnostic Tools -->
+          <div class="panel-card" style="margin-top: 1.5rem;">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h3 class="panel-title">Physical Hardware Diagnostics</h3>
+                <span class="panel-subtitle">Direct actuator commands published over MQTT (topic: parking/A/cmd)</span>
+              </div>
+            </div>
+            <div class="actuator-controls-grid">
+              <div class="actuator-col">
+                <span class="col-title">Active Buzzer Control</span>
+                <p class="col-desc">Triggers GPIO 2 on the ESP32 to sound the audible alert buzzer.</p>
+                <div class="btn-cluster">
+                  <button class="btn btn-primary" onclick="triggerBuzzer(300)">Chirp (300ms)</button>
+                  <button class="btn btn-warning" onclick="triggerBuzzer(600)">Alert (600ms)</button>
+                  <button class="btn btn-danger" onclick="triggerBuzzer(1200)">Warning (1200ms)</button>
+                </div>
+              </div>
+              <div class="actuator-col">
+                <span class="col-title">LED Diagnostic Overrides</span>
+                <p class="col-desc">Toggle physical LEDs on the test bench to verify GPIO pin integrity.</p>
+                <div class="led-test-grid">
+                  <div class="led-test-item">
+                    <span>Slot 1:</span>
+                    <button class="btn-micro green" onclick="testLED(1, 'green', true)">Green</button>
+                    <button class="btn-micro red" onclick="testLED(1, 'red', true)">Red</button>
+                  </div>
+                  <div class="led-test-item">
+                    <span>Slot 2:</span>
+                    <button class="btn-micro green" onclick="testLED(2, 'green', true)">Green</button>
+                    <button class="btn-micro red" onclick="testLED(2, 'red', true)">Red</button>
+                  </div>
+                  <div class="led-test-item">
+                    <span>Slot 3:</span>
+                    <button class="btn-micro green" onclick="testLED(3, 'green', true)">Green</button>
+                    <button class="btn-micro red" onclick="testLED(3, 'red', true)">Red</button>
+                  </div>
+                  <div class="led-test-item">
+                    <span>Slot 4:</span>
+                    <button class="btn-micro green" onclick="testLED(4, 'green', true)">Green</button>
+                    <button class="btn-micro red" onclick="testLED(4, 'red', true)">Red</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 3: ANALYTICS
+             ========================================================= -->
+        <section class="view-panel" id="view-analytics">
+          <div class="section-top-actions">
+            <div>
+              <h2 class="view-heading">Occupancy Analytics & Intelligence</h2>
+              <p class="view-subheading">Historical utilization, diurnal cycles, heatmap patterns, and anomaly detection.</p>
+            </div>
+            <div class="time-filter-pills">
+              <button class="time-pill active" data-days="30">Last 30 Days</button>
+              <button class="time-pill" data-days="7">Last 7 Days</button>
+            </div>
+          </div>
+
+          <!-- Charts Row 1: Hourly + Daily -->
+          <div class="analytics-charts-grid">
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <h3 class="panel-title">Hourly Occupancy Profile</h3>
+                  <span class="panel-subtitle">Average occupancy percentage across hours 00:00 to 23:00</span>
+                </div>
+              </div>
+              <div class="chart-container">
+                <canvas id="analytics-hourly-chart"></canvas>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <h3 class="panel-title">Day-of-Week Occupancy</h3>
+                  <span class="panel-subtitle">Weekly demand cycle from Monday through Sunday</span>
+                </div>
+              </div>
+              <div class="chart-container">
+                <canvas id="analytics-daily-chart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Heatmap Card -->
+          <div class="panel-card" style="margin-top: 1.5rem;">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h3 class="panel-title">Day &times; Hour Occupancy Heatmap</h3>
+                <span class="panel-subtitle">7 &times; 24 matrix displaying utilization intensity across all time slots</span>
+              </div>
+              <div class="heatmap-legend">
+                <span>0%</span>
+                <span class="heatmap-gradient-bar"></span>
+                <span>100%</span>
+              </div>
+            </div>
+            <div class="heatmap-wrapper">
+              <canvas id="analytics-heatmap-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Slot Utilization & Statistics Row -->
+          <div class="analytics-split" style="margin-top: 1.5rem;">
+            <div class="panel-card flex-1">
+              <div class="panel-header">
+                <h3 class="panel-title">Slot Utilization Ranking</h3>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table" id="utilization-table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Slot</th>
+                      <th>Utilization %</th>
+                      <th>Total Sessions</th>
+                      <th>Avg Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody id="utilization-tbody">
+                    <tr><td colspan="5" class="empty-cell">Loading utilization data...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel-card flex-1">
+              <div class="panel-header">
+                <h3 class="panel-title">Key Insights & Anomalies</h3>
+              </div>
+              <div class="insights-container" id="analytics-insights-container">
+                <div class="empty-state">Loading insights...</div>
+              </div>
+              <div class="anomalies-container" id="analytics-anomalies-container">
+                <!-- Anomaly items -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 4: PARKING HISTORY & AUDIT LOG
+             ========================================================= -->
+        <section class="view-panel" id="view-history">
+          <div class="section-top-actions">
+            <div>
+              <h2 class="view-heading">Parking History & Events Log</h2>
+              <p class="view-subheading">Comprehensive record of vehicle sessions and raw MQTT sensor events.</p>
+            </div>
+            <button class="btn btn-accent" id="btn-export-csv">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              <span>Download CSV Audit Log</span>
+            </button>
+          </div>
+
+          <!-- Sessions Table -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h3 class="panel-title">Parking Sessions</h3>
+                <span class="panel-subtitle">State transitions detected by HC-SR04 ultrasonic sensors</span>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Slot</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Duration</th>
+                    <th>Session Status</th>
+                  </tr>
+                </thead>
+                <tbody id="history-sessions-tbody">
+                  <tr><td colspan="5" class="empty-cell">Loading session records...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Raw Sensor Events Audit Log -->
+          <div class="panel-card" style="margin-top: 1.5rem;">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h3 class="panel-title">Recent MQTT Sensor Events</h3>
+                <span class="panel-subtitle">Raw telemetry messages received on topic parking/A/slot/{id}/state</span>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Event ID</th>
+                    <th>Slot</th>
+                    <th>Occupancy</th>
+                    <th>Distance</th>
+                    <th>RSSI</th>
+                    <th>Sequence</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="history-events-tbody">
+                  <tr><td colspan="7" class="empty-cell">Loading raw event stream...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             VIEW 5: DEVICE HEALTH & DIAGNOSTICS
+             ========================================================= -->
+        <section class="view-panel" id="view-device-health">
+          <div class="section-top-actions">
+            <div>
+              <h2 class="view-heading">Device Health & Telemetry</h2>
+              <p class="view-subheading">Hardware diagnostic status, Wi-Fi link parameters, heartbeat timestamps, and sensor telemetry.</p>
+            </div>
+          </div>
+
+          <!-- Hardware Diagnostics Grid -->
+          <div class="health-cards-grid">
+            <div class="health-card">
+              <div class="health-header">
+                <span class="health-title">ESP32 DevKit V1</span>
+                <span class="status-indicator" id="health-esp32-dot"></span>
+              </div>
+              <div class="health-main-status" id="health-esp32-status">Offline</div>
+              <div class="health-details">
+                <div class="health-detail-row">
+                  <span>Heartbeat Interval:</span>
+                  <strong>30 seconds</strong>
+                </div>
+                <div class="health-detail-row">
+                  <span>Last Heartbeat:</span>
+                  <strong id="health-esp32-last-seen">—</strong>
+                </div>
+                <div class="health-detail-row">
+                  <span>Heartbeat Timeout:</span>
+                  <strong>60 seconds</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="health-card">
+              <div class="health-header">
+                <span class="health-title">MQTT Broker (Mosquitto)</span>
+                <span class="status-indicator" id="health-broker-dot"></span>
+              </div>
+              <div class="health-main-status" id="health-broker-status">Checking...</div>
+              <div class="health-details">
+                <div class="health-detail-row">
+                  <span>Protocol:</span>
+                  <strong>TCP MQTT v3.1.1</strong>
+                </div>
+                <div class="health-detail-row">
+                  <span>Port:</span>
+                  <strong>1883</strong>
+                </div>
+                <div class="health-detail-row">
+                  <span>QoS Level:</span>
+                  <strong>QoS 1 (Retained)</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="health-card">
+              <div class="health-header">
+                <span class="health-title">Wi-Fi Telemetry</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="health-icon text-info"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+              </div>
+              <div class="health-main-status" id="health-wifi-rssi">— dBm</div>
+              <div class="health-details">
+                <div class="health-detail-row">
+                  <span>Signal Quality:</span>
+                  <strong id="health-wifi-quality">Evaluating...</strong>
+                </div>
+                <div class="health-detail-row">
+                  <span>Network Status:</span>
+                  <strong id="health-wifi-status">Active Link</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="health-card">
+              <div class="health-header">
+                <span class="health-title">Backend API Engine</span>
+                <span class="status-indicator active"></span>
+              </div>
+              <div class="health-main-status text-success">Healthy</div>
+              <div class="health-details">
+                <div class="health-detail-row">
+                  <span>Database:</span>
+                  <strong id="health-db-status">SQLite (Connected)</strong>
+                </div>
+                <div class="health-detail-row">
+                  <span>Uptime:</span>
+                  <strong id="health-uptime-val">—</strong>
+                </div>
+                <div class="health-detail-row">
+                  <span>WebSockets:</span>
+                  <strong id="health-ws-val">Active Stream</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Individual Slot Sensor Table -->
+          <div class="panel-card" style="margin-top: 1.5rem;">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h3 class="panel-title">Ultrasonic Sensor Status Matrix</h3>
+                <span class="panel-subtitle">HC-SR04 pinout assignments, voltage divider status, and last measured distances</span>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Slot</th>
+                    <th>Sensor Model</th>
+                    <th>TRIG Pin</th>
+                    <th>ECHO Pin (3.3V safe)</th>
+                    <th>Status</th>
+                    <th>Measured Distance</th>
+                    <th>Threshold</th>
+                    <th>Last Update</th>
+                  </tr>
+                </thead>
+                <tbody id="health-sensors-tbody">
+                  <tr>
+                    <td><strong>Bay 1</strong></td>
+                    <td>HC-SR04</td>
+                    <td>GPIO 5</td>
+                    <td>GPIO 34 (Divider: 1k&Omega; + 2k&Omega;)</td>
+                    <td><span class="status-pill offline" id="health-slot-1-pill">—</span></td>
+                    <td id="health-slot-1-dist">— cm</td>
+                    <td>&lt; 20 cm</td>
+                    <td id="health-slot-1-time">—</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bay 2</strong></td>
+                    <td>HC-SR04</td>
+                    <td>GPIO 18</td>
+                    <td>GPIO 35 (Divider: 1k&Omega; + 2k&Omega;)</td>
+                    <td><span class="status-pill offline" id="health-slot-2-pill">—</span></td>
+                    <td id="health-slot-2-dist">— cm</td>
+                    <td>&lt; 20 cm</td>
+                    <td id="health-slot-2-time">—</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bay 3</strong></td>
+                    <td>HC-SR04</td>
+                    <td>GPIO 19</td>
+                    <td>GPIO 32 (Divider: 1k&Omega; + 2k&Omega;)</td>
+                    <td><span class="status-pill offline" id="health-slot-3-pill">—</span></td>
+                    <td id="health-slot-3-dist">— cm</td>
+                    <td>&lt; 20 cm</td>
+                    <td id="health-slot-3-time">—</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bay 4</strong></td>
+                    <td>HC-SR04</td>
+                    <td>GPIO 23</td>
+                    <td>GPIO 33 (Divider: 1k&Omega; + 2k&Omega;)</td>
+                    <td><span class="status-pill offline" id="health-slot-4-pill">—</span></td>
+                    <td id="health-slot-4-dist">— cm</td>
+                    <td>&lt; 20 cm</td>
+                    <td id="health-slot-4-time">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ML Model Info -->
+          <div class="panel-card" style="margin-top: 1.5rem;">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h3 class="panel-title">Machine Learning Model Diagnostics</h3>
+                <span class="panel-subtitle">RandomForestRegressor trained for 24-hour occupancy forecasting</span>
+              </div>
+              <button class="btn btn-secondary" id="btn-retrain-ml">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>Retrain Model</span>
+              </button>
+            </div>
+            <div class="ml-info-grid">
+              <div class="ml-stat-box">
+                <span class="box-label">Algorithm</span>
+                <span class="box-val" id="ml-algo-name">RandomForestRegressor</span>
+              </div>
+              <div class="ml-stat-box">
+                <span class="box-label">Model Status</span>
+                <span class="box-val text-success" id="ml-status-text">Trained &amp; Validated</span>
+              </div>
+              <div class="ml-stat-box">
+                <span class="box-label">Mean Absolute Error</span>
+                <span class="box-val" id="ml-mae-val">0.1331 (13.3%)</span>
+              </div>
+              <div class="ml-stat-box">
+                <span class="box-label">R&sup2; Score</span>
+                <span class="box-val text-info" id="ml-r2-val">0.6423</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- ── Footer ── -->
+      <footer class="app-footer">
+        <div class="footer-left">
+          <span>Smart Parking IoT System &bull; Live Academic Demonstration</span>
+        </div>
+        <div class="footer-right">
+          <span class="update-label">Last synced:</span>
+          <span class="update-timestamp" id="footer-sync-time">—</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <!-- App Script -->
+  <script src="app.js" defer></script>
+</body>
+</html>
